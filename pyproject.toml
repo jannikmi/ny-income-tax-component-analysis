@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "ny-income-tax-analysis"
+version = "0.0.1"
+description = ""
+authors = ["Jannik Kissinger"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+# common
+python = "3.10.*" # has to match the version used in the backend base image
+pandas = "^2"
+umap-learn = "^0.5.3"
+scikit-learn = "^1.2.1"
+#skorch = "^0.14.0"
+#torch = "2.*.*"
+# tensorflow
+# macOS
+tensorflow-macos = { version = "^2.10.0", markers = "sys_platform == 'darwin'" }
+tensorflow-metal = { version = "^1", markers = "sys_platform == 'darwin'" } # Apple ML GPU optimisation
+# default:
+tensorflow = { version = "^2.10.0", markers = "sys_platform != 'darwin'" }
+
+# analytics:
+pandas-profiling = "^3.6.6"
+#dtale = "^2.10.0"
+jupyter = "^1.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+poetry = "1.3.2"
+
+
+[tool.poetry.extras]
+# Note: extras can overlap in contrast to dependency groups.
+backend = [
+    "nltk",
+    "scikit-learn",
+    "pytorch-lightning",
+    "sentence-transformers",
+    "umap-learn",
+    "fastapi",
+    "uvicorn",
+]
+frontend = [
+    "plotly",
+    "requests",
+    "streamlit",
+]
+training = [
+    "nltk",
+    "scikit-learn",
+    "sentence-transformers",
+    "uvicorn",
+    "pytorch-lightning",
+    "datasets",
+]
+analytics = [
+    "setfit",
+    "wordcloud",
+    "matplotlib",
+    "plotly",
+    "hdbscan",
+]
+
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "src"
+]
+minversion = "6.0"
+# --tb=line: shorter traceback format (only one line per failure)
+# -rfEPpxX: display short summary info
+addopts = ["--tb=line", "-rfEPpxX"]
+log_cli = 1
+log_cli_level = "INFO"
+log_cli_format = "[%(levelname)s] (%(filename)s:%(lineno)s) %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.mypy]
+plugins = "pydantic.mypy"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+force_grid_wrap = 0
+line_length = 120
