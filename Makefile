@@ -1,6 +1,7 @@
 
 sync:
-	jupytext --sync notebooks/experiment.ipynb
+	#jupytext --sync notebooks/experiment.ipynb
+	jupytext --sync scripts/experiment.py
 
 update:
 	@echo "pinning the dependencies specified in 'pyproject.toml':"
