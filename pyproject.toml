@@ -8,11 +8,14 @@ readme = "README.md"
 [tool.poetry.dependencies]
 # common
 python = "3.10.*" # has to match the version used in the backend base image
+jupyter = "^1.0.0"
 pandas = "^2"
 umap-learn = "^0.5.3"
 scikit-learn = "^1.2.1"
-#skorch = "^0.14.0"
+
 #torch = "2.*.*"
+#skorch = "^0.14.0"
+
 # tensorflow
 # macOS
 tensorflow-macos = { version = "^2.10.0", markers = "sys_platform == 'darwin'" }
@@ -23,12 +26,9 @@ tensorflow = { version = "^2.10.0", markers = "sys_platform != 'darwin'" }
 # analytics:
 pandas-profiling = "^3.6.6"
 #dtale = "^2.10.0"
-jupyter = "^1.0.0"
-
 
 [tool.poetry.group.dev.dependencies]
 poetry = "1.3.2"
-
 
 [tool.poetry.extras]
 # Note: extras can overlap in contrast to dependency groups.
