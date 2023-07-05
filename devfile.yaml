@@ -1,0 +1,25 @@
+# Configuration for OpenShift Dev Spaces
+schemaVersion: 2.1.0
+metadata:
+ name: ny-income-tax-component-analysis
+components:
+ - name: python
+   container:
+     image: registry.redhat.io/devspaces/udi-rhel8:3.5
+     volumeMounts:
+       - name: venv
+         path: /home/user/.venv
+     memoryLimit: 5G
+     mountSources: true
+ - name: venv
+   volume:
+     size: 10G
+commands:
+ - id: run
+   exec:
+     label: "Run the application"
+     component: python
+     workingDir: ${PROJECTS_ROOT}
+     commandLine: python -m venv .venv && . .venv/bin/activate && python scripts/experiment.py
+     group:
+       kind: run
