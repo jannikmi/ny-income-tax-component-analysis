@@ -13,20 +13,22 @@ pandas = "^2"
 umap-learn = "^0.5.3"
 scikit-learn = "^1.2.1"
 
-#torch = "2.*.*"
-#skorch = "^0.14.0"
-
 # tensorflow
 # macOS
 tensorflow-macos = { version = "^2.10.0", markers = "sys_platform == 'darwin'" }
 tensorflow-metal = { version = "^1", markers = "sys_platform == 'darwin'" } # Apple ML GPU optimisation
 # default:
 tensorflow = { version = "^2.10.0", markers = "sys_platform != 'darwin'" }
+#
+torch = "^2.0.1"
+lightning = "^2.0.4"
 
 # analytics:
 pandas-profiling = "^3.6.6"
 #dtale = "^2.10.0"
 jupytext = "^1.14.7"
+
+
 
 [tool.poetry.group.dev.dependencies]
 poetry = "1.3.2"
