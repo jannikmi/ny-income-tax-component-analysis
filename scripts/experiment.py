@@ -28,7 +28,6 @@ import pandas as pd
 import os
 from pathlib import Path
 import sklearn
-
 PROJECT_ROOT = Path(os.path.abspath('')).parent
 DATA_FOLDER = PROJECT_ROOT / "data"
 REPORTS_FOLDER = PROJECT_ROOT / "report"
@@ -157,6 +156,8 @@ df = drop_rows_w_missing_values(df)
 df = df[df[COL_TARGET] > 0.0]
 
 df = df[COLS2KEEP]
+
+df.to_csv(DATA_FOLDER / "cleaned.csv", index=False)
 
 print("done.")
 print(f"found {len(df)} rows, {len(df.columns)} columns\n")
