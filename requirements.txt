@@ -1,0 +1,10 @@
+jupyter
+jupytext
+pandas
+pandas-profiling
+umap-learn
+scipy
+scikit-learn
+tensorflow
+torch
+lightning
