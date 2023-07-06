@@ -13,9 +13,9 @@
 # ---
 
 # %% [markdown]
-# # Income Tax Analysis NY
+# Income Tax Analysis NY
 #
-# Global Definitions
+# # Global Definitions
 
 # %%
 # %matplotlib inline
@@ -112,7 +112,9 @@ def plot_predictions(regr, X, y):
 
 
 # %% [markdown]
-# Data Preprocessing: Cleaning, Feature Selection, Feature Engineering
+# # Data Preprocessing
+#
+# Cleaning, Feature Selection, Feature Engineering
 
 # %%
 
@@ -162,7 +164,7 @@ print("done.")
 print(f"found {len(df)} rows, {len(df.columns)} columns\n")
 
 # %% [markdown]
-# Generate Basic Data Report
+# # Generate Basic Data Report
 
 # %%
 
@@ -180,6 +182,8 @@ profile.to_file(REPORTS_FOLDER / "data_distribution_report.html")
 
 
 # %% [markdown]
+# # Train Test Split
+#
 # Split data into training and test set using the year column
 
 # %%
@@ -199,6 +203,8 @@ outputs = pd.concat([outputs1, outputs2])
 sns.displot(outputs, x=COL_TARGET, hue=COL_SOURCE, element="step")
 
 # %% [markdown]
+# # Linear Model
+#
 # Fit and evaluate a linear model
 
 # %%
@@ -210,6 +216,8 @@ print("score on test set:", get_score(regr, X_test, y_test))
 plot_predictions(regr, X_test, y_test)
 
 # %% [markdown]
+# # Single Layer Neural Network
+#
 # Fit and evaluate a simple single layer neural network
 
 # %%
@@ -228,11 +236,14 @@ print("score on test set:", get_score(regr, X_test, y_test))
 plot_predictions(regr, X_test, y_test)
 
 # %% [markdown]
-# Fit and evaluate a multi-layer neural network
+# # Multi-layer Neural Networks
+#
+# Fit and evaluate multi-layer neural networks
+# including dropout, batch-normalization, early stopping, learning rate schedule etc.
 
 
 # %% [markdown]
-# pytorch (lightning) model
+# ## pytorch (lightning)
 
 # %%
 import pytorch_lightning as pl
@@ -482,7 +493,7 @@ print("score on test set:", get_score(regr, X_test, y_test))
 plot_predictions(regr, X_test, y_test)
 
 # %% [markdown]
-# tensorflow
+# ## tensorflow
 
 # %%
 from keras import regularizers
@@ -591,6 +602,11 @@ history = regr.fit(
 print("score on test set:", get_score(regr, X_test, y_test))
 plot_loss(history)
 
+# %% [markdown]
+# # Prediction Visualisation
+#
+# Visualise the distribution of predicted target values together with the true target values
+
 # %%
 
 plot_predictions(regr, X_test, y_test)
@@ -598,7 +614,9 @@ plot_predictions(regr, X_test, y_test)
 
 
 # %% [markdown]
-# Visualise the prediction errors
+# # Error Visualisation
+#
+# Visualise the distribution of prediction errors
 
 # %%
 
@@ -607,7 +625,9 @@ errors = y_test - y_test_pred
 sns.displot(errors, element="step")
 
 # %% [markdown]
-# Reduce the dimensionality of the data and visualise it
+# # Dimensionality Reduction
+#
+# Reduce the dimensionality of the data and visualise in 2D
 
 
 # %%
