@@ -98,7 +98,6 @@ COLS2KEEP = [COL_TAX_YEAR, COL_INCOME_RANGE] + COLS_MONETARY
 def get_score(regr, X, y):
     y_pred = regr.predict(X)
     score = r2_score(y, y_pred)
-    print("score:", score)
     return score
 
 
@@ -255,23 +254,27 @@ NR_OUTP_FEATURES = 1
 
 # DEBUG = True
 DEBUG = False
-NR_DEBUG_SAMPLES = 1000
 BATCH_SIZE = 128
-LEARNING_RATE = 1e-1  # TODO on plateau
+LEARNING_RATE = 1e-1
+DROPOUT = 0.0
 OPT_CRIT_NAME = "val_loss"
 OPT_MODE = "min"
 EARLY_STOP_PATIENCE = 20
+LAYER_SIZE = 20
+NR_HIDDEN_LAYER = 5
 EARLY_STOP_THRESH = 0.0  # reached zero loss
-EARLY_STOP_MIN_DELTA = 1e-3  # accept every improvement
-BATCH_COUNT_EVAL = 10  # evaluating every n-th batch (gradient update) -> save checkpoint
+EARLY_STOP_MIN_DELTA = 0.0  # all improvements count, 1e-7 precision of float32
 MAX_EPOCHS = 300  # early stopping should kick in much earlier
-LOSS_FCT = F.mse_loss
+LOSS_FCT = F.mse_loss  # mean squared error
+ACT_FCT = nn.ReLU
+NP_DTYPE = np.float32
+TORCH_DTYPE = torch.float32
 
 if DEBUG:
     print("INFO: DEBUG mode is on!")
-    EARLY_STOP_PATIENCE = 1
     MAX_EPOCHS = 2
 
+torch.manual_seed(1)  # reproducibility
 # Check that MPS is available
 if torch.backends.mps.is_available():
     device_id = "mps"
@@ -287,7 +290,7 @@ else:
 
 print(f"pytorch: Using {device_id} device")
 torch_device = torch.device(device_id)
-torch.set_default_dtype(torch.float32)
+torch.set_default_dtype(TORCH_DTYPE)
 
 early_stopping_cb = callbacks.EarlyStopping(
     monitor=OPT_CRIT_NAME,
@@ -295,15 +298,17 @@ early_stopping_cb = callbacks.EarlyStopping(
     min_delta=EARLY_STOP_MIN_DELTA,
     # number of allowed validation checks with no improvement
     patience=EARLY_STOP_PATIENCE,
-    # verbose=False,
+    verbose=True,
     stopping_threshold=EARLY_STOP_THRESH,
 )
 
+nr_batches = len(y_train) // BATCH_SIZE
 training_kws = dict(
     callbacks=[early_stopping_cb, ],
     check_val_every_n_epoch=1,
     # val_check_interval=BATCH_COUNT_EVAL,  # more frequent evaluation
     max_epochs=MAX_EPOCHS,
+    log_every_n_steps=nr_batches,  # log every epoch
 )
 if device_id == "mps":  # Apple Silicon GPU
     training_kws.update(dict(accelerator='mps', devices=1))
@@ -314,8 +319,13 @@ trainer = pl.Trainer(**training_kws)
 class DataFrameDataset(Dataset):
     def __init__(self, X: pd.DataFrame, y: pd.DataFrame):
         super().__init__()
-        self.X = X.values.astype(np.float32)
-        self.y = y.values.astype(np.float32)
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+        if isinstance(y, (pd.DataFrame, pd.Series)):
+            y = y.values
+
+        self.X = X.astype(NP_DTYPE)
+        self.y = y.astype(NP_DTYPE)
 
     def __len__(self):
         return len(self.y)
@@ -342,11 +352,23 @@ class TorchNN(pl.LightningModule):
         self.input_size = input_size
         self.output_size = NR_OUTP_FEATURES
 
-        # classification head
-        layers = (
-            # TODO hidden layers,...
-            nn.Linear(input_size, self.output_size),
-            nn.Linear(input_size, self.output_size),
+        if NR_HIDDEN_LAYER == 0:
+            warnings.warn("No hidden layers are used (equal to SGD linear regression)!")
+
+        layer_input_size = input_size
+        layers = []
+        for i in range(NR_HIDDEN_LAYER):
+            layers.append(nn.Linear(layer_input_size, LAYER_SIZE))
+            # Batch Normalization Layer after the linear layer
+            layers.append(nn.BatchNorm1d(LAYER_SIZE))
+            layers.append(ACT_FCT())
+            if DROPOUT > 0.0:
+                # dropout after the linear layer
+                layers.append(nn.Dropout(p=DROPOUT))
+            layer_input_size = LAYER_SIZE
+
+        layers.append(
+            nn.Linear(layer_input_size, self.output_size),
         )
         self.nn = nn.Sequential(*layers)
 
@@ -358,13 +380,17 @@ class TorchNN(pl.LightningModule):
         return self.get_activations(X)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        X = torch.tensor(X.values, dtype=torch.float32)
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+        X = torch.tensor(X, dtype=TORCH_DTYPE)
         y = self.forward(X).detach().numpy()
         return y
 
     def get_loss(self, batch):
         X, targets = batch
         activations = self.get_activations(X)
+        # Attention: ensure matching dimensions to avoid incorrect results due to broadcasting
+        activations = activations[:, 0]
         return LOSS_FCT(activations, targets)
 
     def training_step(self, batch, batch_idx):
@@ -389,11 +415,13 @@ class TorchNN(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
-            mode='max',
-            factor=0.2,
+            mode='min',
+            factor=1 / 2,
             patience=2,
-            min_lr=1e-6,
-            verbose=True
+            min_lr=0.0,  # let early stopping handle
+            verbose=True,
+            cooldown=0,
+
         )
         return {
             "optimizer": self.optimizer,
@@ -414,28 +442,42 @@ def get_ds_loader(X, y, batch_size, shuffle):
 
 
 def train_model():
-    nr_input_features = X_train.shape[1]
+    X_train_norm, X_test_norm, y_train_norm, y_test_norm = X_train, X_test, y_train, y_test
+    # # normalise the data
+    # Attention: then the model in not compatible, because it requires normalised data!
+    # input_scaler = StandardScaler()
+    # X_train_norm = input_scaler.fit_transform(X_train)
+    # X_test_norm = input_scaler.transform(X_test)
+    #
+    # output_scaler = StandardScaler()
+    # y_train_norm = output_scaler.fit_transform(y_train.values.reshape(-1, 1)).flatten()
+    # y_test_norm = output_scaler.transform(y_test.values.reshape(-1, 1)).flatten()
+
     # data preparation
     # shuffle each iteration for randomized batches
-    train_loader = get_ds_loader(X_train, y_train, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = get_ds_loader(X_train_norm, y_train_norm, batch_size=BATCH_SIZE, shuffle=True)
     # only one batch
-    eval_loader = get_ds_loader(X_test, y_test, batch_size=len(y_test), shuffle=False)
+    eval_loader = get_ds_loader(X_test_norm, y_test_norm, batch_size=len(y_test), shuffle=False)
 
     regr = TorchNN(
         learning_rate=LEARNING_RATE,
-        input_size=nr_input_features,
+        input_size=(X_train.shape[1]),
     )
     regr.to(torch_device)
 
     # fit the head
     trainer.fit(regr, train_loader, eval_loader)
     # TODO
-    print("evaluating the evaluation set")
-    trainer.test(regr, eval_loader)
+    # print("evaluating the evaluation set")
+    # trainer.test(regr, eval_loader)
     return regr
 
 
 regr = train_model()
+
+# to show training progress:
+# tensorboard --logdir=lightning_logs/
+
 print("score on test set:", get_score(regr, X_test, y_test))
 plot_predictions(regr, X_test, y_test)
 
@@ -445,16 +487,16 @@ plot_predictions(regr, X_test, y_test)
 # %%
 from keras import regularizers
 import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
 
 tf.random.set_seed(1)
 print("TensorFlow version:", tf.__version__)
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(f"{len(gpus)} GPUs Available:", gpus)
 
-from tensorflow import keras
-from tensorflow.keras import layers
-
 LOSS = 'mean_squared_error'  # 'mean_absolute_error'
+OPT_CRIT_NAME = 'val_loss'
 ACT_FCT = 'relu'
 DROPOUT = 0.0
 LAYER_SIZE = 20
@@ -470,13 +512,13 @@ test_dataset = test_dataset.batch(len(X_test))
 
 def build_and_compile_model(norm):
     layer_list = [norm, ]
-    # layer_list = []
 
     for i in range(NR_HIDDEN_LAYER):
         layer_list += [
             layers.Dense(LAYER_SIZE, activation=ACT_FCT, kernel_regularizer=WEIGHT_REGULARISER,
                          activity_regularizer=ACTIVITY_REGULARIZER
                          ),
+            # TODO batch norm before the activation?
             layers.BatchNormalization(),
         ]
         if DROPOUT > 0.0:
@@ -487,6 +529,7 @@ def build_and_compile_model(norm):
                      activation=ACT_FCT,
                      ),
     ]  # target
+
     model = keras.Sequential(layer_list)
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=lr,
@@ -498,7 +541,7 @@ def build_and_compile_model(norm):
 
 def plot_loss(history):
     plt.plot(history.history['loss'], label='loss')
-    plt.plot(history.history['val_loss'], label='val_loss')
+    plt.plot(history.history[OPT_CRIT_NAME], label=OPT_CRIT_NAME)
     plt.xlabel('Epoch')
     plt.ylabel(LOSS)
     plt.semilogy()
@@ -510,13 +553,18 @@ normalizer = tf.keras.layers.Normalization(axis=-1)
 # fit the state of the preprocessing layer to the data by calling Normalization.adapt:
 normalizer.adapt(X_train)
 
+# TODO output normalisation
+# normalizer_ = tf.keras.layers.Normalization(axis=-1, invert=True)
+# # fit the state of the preprocessing layer to the data by calling Normalization.adapt:
+# normalizer_.adapt(y_train)
+
 regr = build_and_compile_model(normalizer)
 print(regr.summary())
 print("training...")
-callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20, mode='min', restore_best_weights=True,
+callback = tf.keras.callbacks.EarlyStopping(monitor=OPT_CRIT_NAME, patience=20, mode='min', restore_best_weights=True,
                                             start_from_epoch=10)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-    monitor='val_loss',
+    monitor=OPT_CRIT_NAME,
     factor=1 / 2,
     patience=2,
     verbose=1,
