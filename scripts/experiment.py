@@ -598,8 +598,6 @@ history = regr.fit(
 # reloaded = tf.keras.models.load_model('dnn_model')
 # results = dnn_model.evaluate(test_features, test_labels, verbose=0)
 
-
-print("score on test set:", get_score(regr, X_test, y_test))
 plot_loss(history)
 
 # %% [markdown]
@@ -608,7 +606,7 @@ plot_loss(history)
 # Visualise the distribution of predicted target values together with the true target values
 
 # %%
-
+print("score on test set:", get_score(regr, X_test, y_test))
 plot_predictions(regr, X_test, y_test)
 # plot_predictions(regr, X_train, y_train)
 
