@@ -163,11 +163,13 @@ df.to_csv(DATA_FOLDER / "cleaned.csv", index=False)
 print("done.")
 print(f"found {len(df)} rows, {len(df.columns)} columns\n")
 
+# %%
+df.head()
+
 # %% [markdown]
-# # Generate Basic Data Report
+# # Basic Data Report
 
 # %%
-
 import ydata_profiling
 
 profile = ydata_profiling.ProfileReport(df,
@@ -187,7 +189,6 @@ profile.to_file(REPORTS_FOLDER / "data_distribution_report.html")
 # Split data into training and test set using the year column
 
 # %%
-
 COLS_INPUT = list(set(COLS_MONETARY) - {COL_TARGET})
 X_train = df[df[COL_TAX_YEAR] == 2015]
 X_test = df[df[COL_TAX_YEAR] == 2016]
@@ -224,7 +225,6 @@ plot_predictions(regr, X_test, y_test)
 from sklearn.neural_network import MLPRegressor
 
 regr = MLPRegressor(random_state=1, max_iter=500,
-                    # hidden_layer_sizes=(100, 100, 100),
                     hidden_layer_sizes=(100,),
                     )
 regr.fit(X_train, y_train)
