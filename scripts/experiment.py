@@ -651,8 +651,6 @@ def add_umap_cols(df, columns, **h_params):
         df[DIM_COLS[d]] = umap_emb
 
 
-params = dict(n_neighbors=5, min_dist=0.3)
+params = dict(n_neighbors=5, min_dist=.8)
 add_umap_cols(df, COLS_MONETARY, **params)
-
-# %%
 sns.relplot(data=df, x=DIM_COLS[0], y=DIM_COLS[1], hue=COL_INCOME_RANGE)  # s=size, **kwargs)
