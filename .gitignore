@@ -1,6 +1,7 @@
 data/
 report/
 notebooks/
+lightning_logs/
 .DS_Store
 .idea
 
