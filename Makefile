@@ -29,3 +29,11 @@ force_update:
 outdated:
 	poetry show --outdated
 
+
+
+hook:
+	pre-commit install
+	pre-commit run --all-files
+
+hookup:
+	pre-commit autoupdate

@@ -17,24 +17,29 @@
 #
 # # Global Definitions
 
+import math
+import os
+from pathlib import Path
+
+import pandas as pd
+import seaborn as sns
+
 # %%
 # %matplotlib inline
 from matplotlib import pyplot as plt
-import seaborn as sns
-import math
-import pandas as pd
-import os
-from pathlib import Path
 from sklearn.metrics import r2_score
 
-PROJECT_ROOT = Path(os.path.abspath('')).parent
+PROJECT_ROOT = Path(os.path.abspath("")).parent
 DATA_FOLDER = PROJECT_ROOT / "data"
 REPORTS_FOLDER = PROJECT_ROOT / "report"
 
 DATA_FOLDER.mkdir(parents=True, exist_ok=True)
 REPORTS_FOLDER.mkdir(parents=True, exist_ok=True)
 
-CSV_FILE = DATA_FOLDER / "personal-income-tax-filers-summary-dataset-2-major-items-and-income-deduction-components-by-place-of-1.csv"
+CSV_FILE = (
+    DATA_FOLDER
+    / "personal-income-tax-filers-summary-dataset-2-major-items-and-income-deduction-components-by-place-of-1.csv"
+)
 
 COL_TARGET = "Taxes Paid"
 COL_TAX_YEAR = "Tax Year"
@@ -43,24 +48,23 @@ COL_COUNTRY = "Country"
 COL_RESIDENCE = "Place of Residence"
 COL_INCOME_RANGE = "NY Adjusted Gross Income Range (Fed.Col)"
 COL_SOURCE = "source"
-COLS_CATEGORICAL = ["NYS Residency Status", COL_RESIDENCE, "County", "State", COL_COUNTRY,
-                    COL_INCOME_RANGE]
+COLS_CATEGORICAL = ["NYS Residency Status", COL_RESIDENCE, "County", "State", COL_COUNTRY, COL_INCOME_RANGE]
 
 COLS_MONETARY = [
     # types of income:
     # 'Taxable Income',
-    'Wage and Salary Income',
-    'Gain from Capital&Supplemental Income',
+    "Wage and Salary Income",
+    "Gain from Capital&Supplemental Income",
     # 'Loss from Capital&Supplemental Income',
-    'Gain from Rent,Royalties,Prtnrshp,Estates,Trusts Income',
+    "Gain from Rent,Royalties,Prtnrshp,Estates,Trusts Income",
     # 'Loss from Rent,Royalties,Prtnrshp,Estates,Trusts Income',
-    'Gain from Business & Farm Income',
+    "Gain from Business & Farm Income",
     # 'Loss from Business & Farm Income',
     # 'Pension/Annuity & IRA Income',
     # 'All Other Income',
-    'Interest',
+    "Interest",
     # 'Interest Paid',
-    'Dividends',
+    "Dividends",
     # 'Charitable Contributions',
     # 'Medical & Dental Expenses',
     COL_TARGET,
@@ -122,6 +126,7 @@ def plot_predictions(regr, X, y):
 
 # %%
 
+
 def drop_rows_w_missing_values(df):
     nr_samples = len(df)
     df = df.dropna(axis="index", how="any")
@@ -176,9 +181,7 @@ df.head()
 # %%
 import ydata_profiling
 
-profile = ydata_profiling.ProfileReport(df,
-                                        minimal=False
-                                        )
+profile = ydata_profiling.ProfileReport(df, minimal=False)
 profile.to_file(REPORTS_FOLDER / "data_distribution_report.html")
 
 # sns.pairplot(df[COLS_MONETARY].sample(100), diag_kind='kde')
@@ -228,9 +231,11 @@ plot_predictions(regr, X_test, y_test)
 # %%
 from sklearn.neural_network import MLPRegressor
 
-regr = MLPRegressor(random_state=1, max_iter=500,
-                    hidden_layer_sizes=(100,),
-                    )
+regr = MLPRegressor(
+    random_state=1,
+    max_iter=500,
+    hidden_layer_sizes=(100,),
+)
 regr.fit(X_train, y_train)
 
 # import joblib
@@ -249,20 +254,18 @@ plot_predictions(regr, X_test, y_test)
 # %% [markdown]
 # ## pytorch (lightning)
 
-# %%
-import pytorch_lightning as pl
-import torch
-from torch import nn
-from torch.nn import functional as F
-
 import collections
 import warnings
 
 import numpy as np
 import pandas as pd
+
+# %%
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import callbacks
+from torch import nn
+from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
 
 NR_OUTP_FEATURES = 1
@@ -319,14 +322,16 @@ early_stopping_cb = callbacks.EarlyStopping(
 
 nr_batches = len(y_train) // BATCH_SIZE
 training_kws = dict(
-    callbacks=[early_stopping_cb, ],
+    callbacks=[
+        early_stopping_cb,
+    ],
     check_val_every_n_epoch=1,
     # val_check_interval=BATCH_COUNT_EVAL,  # more frequent evaluation
     max_epochs=MAX_EPOCHS,
     log_every_n_steps=nr_batches,  # log every epoch
 )
 if device_id == "mps":  # Apple Silicon GPU
-    training_kws.update(dict(accelerator='mps', devices=1))
+    training_kws.update(dict(accelerator="mps", devices=1))
 
 trainer = pl.Trainer(**training_kws)
 
@@ -354,10 +359,10 @@ class DataFrameDataset(Dataset):
 
 class TorchNN(pl.LightningModule):
     def __init__(
-            self,
-            learning_rate: float,
-            input_size: int,
-            **kwargs,
+        self,
+        learning_rate: float,
+        input_size: int,
+        **kwargs,
     ):
         super().__init__()
         # automatically save all the hyperparameters passed to init
@@ -430,13 +435,12 @@ class TorchNN(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
-            mode='min',
+            mode="min",
             factor=1 / 2,
             patience=2,
             min_lr=0.0,  # let early stopping handle
             verbose=True,
             cooldown=0,
-
         )
         return {
             "optimizer": self.optimizer,
@@ -446,7 +450,7 @@ class TorchNN(pl.LightningModule):
                 # If "monitor" references validation metrics, then "frequency" should be set to a
                 # multiple of "trainer.check_val_every_n_epoch".
                 "frequency": 1,
-            }
+            },
         }
 
 
@@ -499,20 +503,21 @@ plot_predictions(regr, X_test, y_test)
 # %% [markdown]
 # ## tensorflow
 
+import tensorflow as tf
+
 # %%
 from keras import regularizers
-import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
 tf.random.set_seed(1)
 print("TensorFlow version:", tf.__version__)
-gpus = tf.config.experimental.list_physical_devices('GPU')
+gpus = tf.config.experimental.list_physical_devices("GPU")
 print(f"{len(gpus)} GPUs Available:", gpus)
 
-LOSS = 'mean_squared_error'  # 'mean_absolute_error'
-OPT_CRIT_NAME = 'val_loss'
-ACT_FCT = 'relu'
+LOSS = "mean_squared_error"  # 'mean_absolute_error'
+OPT_CRIT_NAME = "val_loss"
+ACT_FCT = "relu"
 DROPOUT = 0.0
 LAYER_SIZE = 20
 NR_HIDDEN_LAYER = 5
@@ -526,38 +531,46 @@ test_dataset = test_dataset.batch(len(X_test))
 
 
 def build_and_compile_model(norm):
-    layer_list = [norm, ]
+    layer_list = [
+        norm,
+    ]
 
     for i in range(NR_HIDDEN_LAYER):
         layer_list += [
-            layers.Dense(LAYER_SIZE, activation=ACT_FCT, kernel_regularizer=WEIGHT_REGULARISER,
-                         activity_regularizer=ACTIVITY_REGULARIZER
-                         ),
+            layers.Dense(
+                LAYER_SIZE,
+                activation=ACT_FCT,
+                kernel_regularizer=WEIGHT_REGULARISER,
+                activity_regularizer=ACTIVITY_REGULARIZER,
+            ),
             # TODO batch norm before the activation?
             layers.BatchNormalization(),
         ]
         if DROPOUT > 0.0:
             layer_list += [layers.Dropout(DROPOUT)]
     layer_list += [
-        layers.Dense(1,
-                     # activation='linear',
-                     activation=ACT_FCT,
-                     ),
+        layers.Dense(
+            1,
+            # activation='linear',
+            activation=ACT_FCT,
+        ),
     ]  # target
 
     model = keras.Sequential(layer_list)
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=lr,
     )
-    model.compile(loss=LOSS,
-                  optimizer=optimizer, )
+    model.compile(
+        loss=LOSS,
+        optimizer=optimizer,
+    )
     return model
 
 
 def plot_loss(history):
-    plt.plot(history.history['loss'], label='loss')
+    plt.plot(history.history["loss"], label="loss")
     plt.plot(history.history[OPT_CRIT_NAME], label=OPT_CRIT_NAME)
-    plt.xlabel('Epoch')
+    plt.xlabel("Epoch")
     plt.ylabel(LOSS)
     plt.semilogy()
     plt.legend()
@@ -576,14 +589,15 @@ normalizer.adapt(X_train)
 regr = build_and_compile_model(normalizer)
 print(regr.summary())
 print("training...")
-callback = tf.keras.callbacks.EarlyStopping(monitor=OPT_CRIT_NAME, patience=20, mode='min', restore_best_weights=True,
-                                            start_from_epoch=10)
+callback = tf.keras.callbacks.EarlyStopping(
+    monitor=OPT_CRIT_NAME, patience=20, mode="min", restore_best_weights=True, start_from_epoch=10
+)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
     monitor=OPT_CRIT_NAME,
     factor=1 / 2,
     patience=2,
     verbose=1,
-    mode='auto',
+    mode="auto",
     min_delta=0.0,
     cooldown=0,
     min_lr=0.0,
@@ -655,6 +669,6 @@ def add_umap_cols(df, columns, **h_params):
         df[DIM_COLS[d]] = umap_emb
 
 
-params = dict(n_neighbors=5, min_dist=.8)
+params = dict(n_neighbors=5, min_dist=0.8)
 add_umap_cols(df, COLS_MONETARY, **params)
 sns.relplot(data=df, x=DIM_COLS[0], y=DIM_COLS[1], hue=COL_INCOME_RANGE)  # s=size, **kwargs)
