@@ -30,6 +30,10 @@ from sklearn.metrics import r2_score
 PROJECT_ROOT = Path(os.path.abspath('')).parent
 DATA_FOLDER = PROJECT_ROOT / "data"
 REPORTS_FOLDER = PROJECT_ROOT / "report"
+
+DATA_FOLDER.mkdir(parents=True, exist_ok=True)
+REPORTS_FOLDER.mkdir(parents=True, exist_ok=True)
+
 CSV_FILE = DATA_FOLDER / "personal-income-tax-filers-summary-dataset-2-major-items-and-income-deduction-components-by-place-of-1.csv"
 
 COL_TARGET = "Taxes Paid"
