@@ -272,6 +272,9 @@ NR_OUTP_FEATURES = 1
 
 # DEBUG = True
 DEBUG = False
+USE_GPU = True
+# USE_GPU = False
+
 BATCH_SIZE = 128
 LEARNING_RATE = 1e-1
 DROPOUT = 0.0
@@ -293,22 +296,45 @@ if DEBUG:
     MAX_EPOCHS = 2
 
 torch.manual_seed(1)  # reproducibility
-# Check that MPS is available
-if torch.backends.mps.is_available():
-    device_id = "mps"
-else:
-    if torch.backends.mps.is_built():
+torch.set_default_dtype(TORCH_DTYPE)
+
+MPS_ID = "mps"
+
+CUDA_ID = "cuda"
+
+
+def get_torch_device_id() -> str:
+    mps_available = torch.backends.mps.is_available()
+    mps_supported = torch.backends.mps.is_built()
+    cuda_available = torch.cuda.is_available()
+
+    print(f"{mps_available=}\n{mps_supported=}\n{cuda_available=}")
+    if not USE_GPU:
+        return "cpu"
+
+    if mps_available:
+        return MPS_ID
+    if mps_supported:
         print(
             "MPS not available because the current MacOS version is not 12.3+ "
             "and/or you do not have an MPS-enabled device on this machine."
         )
     else:
-        print("MPS not available because the current PyTorch install was not " "built with MPS enabled.")
-    device_id = "cuda" if torch.cuda.is_available() else "cpu"
+        print("MPS not available because the current PyTorch install was not built with MPS enabled.")
 
-print(f"pytorch: Using {device_id} device")
-torch_device = torch.device(device_id)
-torch.set_default_dtype(TORCH_DTYPE)
+    if cuda_available:
+        return CUDA_ID
+
+    return "cpu"
+
+
+def get_torch_device():
+    device_id = get_torch_device_id()
+    print(f"pytorch: Using '{device_id}' device")
+    return torch.device(device_id), device_id
+
+
+torch_device, device_id = get_torch_device()
 
 early_stopping_cb = callbacks.EarlyStopping(
     monitor=OPT_CRIT_NAME,
@@ -330,8 +356,10 @@ training_kws = dict(
     max_epochs=MAX_EPOCHS,
     log_every_n_steps=nr_batches,  # log every epoch
 )
-if device_id == "mps":  # Apple Silicon GPU
-    training_kws.update(dict(accelerator="mps", devices=1))
+if device_id == MPS_ID:  # Apple Silicon GPU
+    training_kws.update(dict(accelerator=MPS_ID, devices=1))
+elif device_id == CUDA_ID:
+    training_kws.update(dict(accelerator="gpu", devices=1))
 
 trainer = pl.Trainer(**training_kws)
 
